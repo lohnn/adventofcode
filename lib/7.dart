@@ -3,13 +3,15 @@ import 'dart:async';
 import 'package:collection/collection.dart';
 
 abstract class Item {
-  const Item();
+  const Item(this.name);
 
   int get size;
+
+  final String name;
 }
 
 class File extends Item {
-  const File(this.size);
+  const File(super.name, this.size);
 
   @override
   final int size;
@@ -18,33 +20,108 @@ class File extends Item {
 class Directory extends Item {
   final List<Item> subItems;
 
-  const Directory(this.subItems);
+  const Directory(super.name, this.subItems);
 
   @override
   int get size => subItems.map((e) => e.size).sum;
+
+  Iterable<Directory> dirsMatching(
+    bool Function(Directory dir) matchingFunction,
+  ) sync* {
+    if (matchingFunction(this)) yield this;
+
+    yield* subItems
+        .whereType<Directory>()
+        .map((e) => e.dirsMatching(matchingFunction))
+        .flattened;
+  }
+
+  @override
+  String toString() {
+    return 'Dir $name with ${subItems.length} items of size $size';
+  }
 }
 
 void main() async {
-  final lineReader = StreamIterator(readLines(testInput));
+  final lineReader = StreamIterator(readLines(input));
 
   await lineReader.moveNext();
 
   final children = await listChildren(lineReader).toList();
 
-  final topLevel = Directory(children);
+  final topLevel = Directory('/', children);
+
+  print('===========');
+  print(topLevel.size);
+  print('===========');
+
+  final maxDirSize = 100000;
+
+  final dirs = topLevel.dirsMatching((dir) => dir.size <= 100000);
+  print(dirs);
+
+  print(dirs.map((e) => e.size).sum);
+
+  print('===========');
+  print('===========');
+
+  final totalSize = 70000000;
+  final atLeast = 30000000;
+
+  final sizeTarget = atLeast - (totalSize - topLevel.size);
+
+  print(sizeTarget);
+
+  final dirs2 = topLevel
+      .dirsMatching((dir) => dir.size >= sizeTarget)
+      .sorted((a, b) => a.size.compareTo(b.size));
+
+  print(dirs2);
+  print(dirs2.first.size);
 }
+
+final cdRegex = RegExp(r'\$ cd ([a-z]+)');
+final fileRegex = RegExp(r'([0-9]+) ([a-z.]+)');
 
 Stream<Item> listChildren(StreamIterator<String> lineReader) async* {
   final alreadyCheckedDirs = <String>[];
+  final alreadyCheckedFiles = <String>[];
 
   while (await lineReader.moveNext()) {
-    if (lineReader.current == r'$ cd ..') return;
+    var currentLine = lineReader.current;
 
-    if (lineReader.current == r'$ls') {
-      yield Directory(await listChildren(lineReader).toList());
+    print(currentLine);
+
+    if (currentLine == r'$ cd ..') return;
+
+    if (cdRegex.hasMatch(currentLine)) {
+      final match = cdRegex.firstMatch(currentLine)!;
+      final name = match.group(1)!;
+
+      if (alreadyCheckedDirs.contains(name)) {
+        throw Exception('Dir $name already checked');
+      }
+
+      alreadyCheckedDirs.add(name);
+
+      yield Directory(name, await listChildren(lineReader).toList());
+      continue;
+    } else if (fileRegex.hasMatch(currentLine)) {
+      final match = fileRegex.firstMatch(currentLine)!;
+      final fileName = match.group(2)!;
+      final fileSize = int.parse(match.group(1)!);
+
+      if (alreadyCheckedDirs.contains(fileName)) {
+        throw Exception('File $fileName already checked');
+      }
+      alreadyCheckedFiles.add(fileName);
+
+      yield File(fileName, fileSize);
+      // TODO(Johannes): Add file to list
+    } else if (currentLine == r'$ ls') {
+      // yield Directory(await listChildren(lineReader).toList());
+      continue;
     }
-
-    print(lineReader.current);
   }
 }
 
