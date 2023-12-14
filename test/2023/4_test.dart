@@ -6,9 +6,8 @@ import '../advent_setup.dart';
 void main() {
   runDay(
     4,
-    onlyTest: true,
     input1: ((testInput, 13), (input, 26218)),
-    input2: ((testInput, 30), (input, null)),
+    input2: ((testInput, 30), (input, 9997537)),
     part1: (lines) {
       final points = [
         for (final line in lines) extractPartOne(line),
@@ -29,6 +28,28 @@ void main() {
 
 extension on List<int> {
   int calculate() {
+    // final temp = <Iterable<int>>[];
+    // for (final (index, wins) in indexed) {
+    //   temp.add(
+    //     sublist(index, index + wins + 1)
+    //         .where((element) => element != 0)
+    //         .map((e) => e + 1),
+    //   );
+    // }
+    // print(temp);
+    //
+    // return temp.flattened.sum + where((element) => element == 0).length;
+
+    final wins = List.filled(length, 1);
+    for (final (index, winnigs) in indexed) {
+      final temp = wins[index];
+      for (int i = index + 1; i < index + winnigs + 1; i++) {
+        wins[i] += temp;
+      }
+    }
+
+    return wins.sum;
+
     final cardsForWins = <List<List<int>>>[];
 
     for (final (index, wins) in reversed.indexed) {
